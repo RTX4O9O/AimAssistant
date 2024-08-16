@@ -36,11 +36,11 @@ public class EventListener {
         } else {
             //target mode
             if (!isLooking(event.entityPlayer)) return;
-            AxisAlignedBB aabb = getAABB(event.entityPlayer, event.partialRenderTick);
-            renderBox(aabb, Config.boxColor);
 
         }
 
+        AxisAlignedBB aabb = getAABB(event.entityPlayer, event.partialRenderTick);
+        renderBox(aabb, Config.boxColor);
     }
 
     private void renderBox(AxisAlignedBB aabb, OneColor color) {
@@ -105,9 +105,13 @@ public class EventListener {
     }
 
     private static AxisAlignedBB getAABB(Entity target, float partialTicks) {
-
-        Vec3 cameraPosRelToEntity = mc.thePlayer.getPositionEyes(partialTicks).subtract(getLerpedPos(mc.thePlayer, partialTicks));
-        AxisAlignedBB boxAtOrigin = target.getEntityBoundingBox().offset(-mc.thePlayer.posX, -mc.thePlayer.posY, -mc.thePlayer.posZ);
+        Vec3 lerpedPos = getLerpedPos(mc.thePlayer, partialTicks);
+        Vec3 targetLerpOffset = getLerpedPos(target, partialTicks);
+        Vec3 cameraPosRelToEntity = mc.thePlayer.getPositionEyes(partialTicks).subtract(lerpedPos);
+        AxisAlignedBB boxAtOrigin = target.getEntityBoundingBox()
+            .offset(-lerpedPos.xCoord, -lerpedPos.yCoord, -lerpedPos.zCoord)
+            .offset(-target.posX, -target.posY, -target.posZ)
+            .offset(targetLerpOffset.xCoord, targetLerpOffset.yCoord, targetLerpOffset.zCoord);
         float halfRange = Config.size / 2;
         AxisAlignedBB shrunkenTargetBox = boxAtOrigin.contract(halfRange, halfRange, halfRange);
         Vec3 bestHitPos = pointClampedIntoBox(cameraPosRelToEntity, shrunkenTargetBox);
@@ -122,6 +126,10 @@ public class EventListener {
 
     private static Vec3 getLerpedPos(Entity entity, float partialTicks) {
         return new Vec3(entity.prevPosX + (entity.posX - entity.prevPosX) * (double) partialTicks, entity.prevPosY + (entity.posY - entity.prevPosY) * (double) partialTicks, entity.prevPosZ + (entity.posZ - entity.prevPosZ) * (double) partialTicks);
+    }
+
+    private static Vec3 getLerpOffset(Entity entity, float partialTicks) {
+        return new Vec3((entity.posX - entity.prevPosX) * (double) partialTicks, (entity.posY - entity.prevPosY) * (double) partialTicks, (entity.posZ - entity.prevPosZ) * (double) partialTicks);
     }
 
     private static Vec3 pointClampedIntoBox(Vec3 point, AxisAlignedBB box) {
