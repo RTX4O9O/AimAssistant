@@ -8,9 +8,12 @@
     "url": "",
     "updateUrl": "",
     "authorList": [
-      "Your Name"
+      "RTX4090"
     ],
-    "credits": "",
+    "credits": [
+      "aycy",
+      "Redth"
+    ],
     "logoFile": "",
     "screenshots": [],
     "dependencies": []
