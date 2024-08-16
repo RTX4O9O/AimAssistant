@@ -30,8 +30,6 @@ public class EventListener {
             //range mode
             double distance = event.entityPlayer.getDistanceSq(mc.thePlayer.posX, mc.thePlayer.posY + mc.thePlayer.getEyeHeight(), mc.thePlayer.posZ);
             if (distance > Config.range * Config.range) return;
-            AxisAlignedBB aabb = getAABB(event.entityPlayer, event.partialRenderTick);
-            renderBox(aabb, Config.boxColor);
 
         } else {
             //target mode
@@ -40,7 +38,11 @@ public class EventListener {
         }
 
         AxisAlignedBB aabb = getAABB(event.entityPlayer, event.partialRenderTick);
-        renderBox(aabb, Config.boxColor);
+        if (mc.pointedEntity == event.entityPlayer) {
+            renderBox(aabb, Config.inReachColor);
+        } else {
+            renderBox(aabb, Config.boxColor);
+        }
     }
 
     private void renderBox(AxisAlignedBB aabb, OneColor color) {
@@ -51,12 +53,14 @@ public class EventListener {
         GlStateManager.disableTexture2D();
         GlStateManager.depthMask(true);
         GlStateManager.disableLighting();
-        GlStateManager.enableCull();
+        GlStateManager.disableCull();
+        GlStateManager.disableDepth();
         if (color.getAlpha() > 0.0F) {
             GlStateManager.color(color.getRed() / 255f, color.getGreen() / 255f, color.getBlue() / 255f, color.getAlpha() / 255f);
             renderCube(aabb);
         }
         GlStateManager.enableCull();
+        GlStateManager.enableDepth();
         GlStateManager.enableLighting();
         GlStateManager.depthMask(true);
         GlStateManager.enableTexture2D();
@@ -116,7 +120,20 @@ public class EventListener {
         AxisAlignedBB shrunkenTargetBox = boxAtOrigin.contract(halfRange, halfRange, halfRange);
         Vec3 bestHitPos = pointClampedIntoBox(cameraPosRelToEntity, shrunkenTargetBox);
 
+
+
         return new AxisAlignedBB(bestHitPos.xCoord, bestHitPos.yCoord, bestHitPos.zCoord, bestHitPos.xCoord, bestHitPos.yCoord, bestHitPos.zCoord).expand(halfRange, halfRange, halfRange);
+    }
+
+    private static boolean isInReach(Entity target, float partialTicks) {
+        Vec3 lerpedPos = getLerpedPos(mc.thePlayer, partialTicks);
+        Vec3 targetLerpOffset = getLerpedPos(target, partialTicks);
+        Vec3 cameraPosRelToEntity = mc.thePlayer.getPositionEyes(partialTicks).subtract(lerpedPos);
+        AxisAlignedBB boxAtOrigin = target.getEntityBoundingBox()
+            .offset(-lerpedPos.xCoord, -lerpedPos.yCoord, -lerpedPos.zCoord)
+            .offset(-target.posX, -target.posY, -target.posZ)
+            .offset(targetLerpOffset.xCoord, targetLerpOffset.yCoord, targetLerpOffset.zCoord);
+        return cameraPosRelToEntity.squareDistanceTo(pointClampedIntoBox(cameraPosRelToEntity, boxAtOrigin)) > 3.0 * 3.0;
     }
 
     private static boolean isLooking(Entity target) {

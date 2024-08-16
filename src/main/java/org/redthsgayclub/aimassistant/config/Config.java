@@ -31,6 +31,11 @@ public class Config extends cc.polyfrost.oneconfig.config.Config {
     )
     public static OneColor boxColor = new OneColor(168, 45, 45, 255);
 
+    @Color(
+        name = "Box Color in Reach"
+    )
+    public static OneColor inReachColor = new OneColor(45, 168, 45, 255);
+
     @Slider(
             name = "Box Size",
             min = 0.05f,
