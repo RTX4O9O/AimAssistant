@@ -145,10 +145,6 @@ public class EventListener {
         return new Vec3(entity.prevPosX + (entity.posX - entity.prevPosX) * (double) partialTicks, entity.prevPosY + (entity.posY - entity.prevPosY) * (double) partialTicks, entity.prevPosZ + (entity.posZ - entity.prevPosZ) * (double) partialTicks);
     }
 
-    private static Vec3 getLerpOffset(Entity entity, float partialTicks) {
-        return new Vec3((entity.posX - entity.prevPosX) * (double) partialTicks, (entity.posY - entity.prevPosY) * (double) partialTicks, (entity.posZ - entity.prevPosZ) * (double) partialTicks);
-    }
-
     private static Vec3 pointClampedIntoBox(Vec3 point, AxisAlignedBB box) {
         double x = MathHelper.clamp_double(point.xCoord, box.minX, box.maxX);
         double y = MathHelper.clamp_double(point.yCoord, box.minY, box.maxY);
