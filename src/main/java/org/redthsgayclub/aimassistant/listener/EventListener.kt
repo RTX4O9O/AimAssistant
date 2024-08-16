@@ -27,8 +27,8 @@ object EventListener {
             val distance = target.getDistanceSqToEntity(player)
             if (distance > ModConfig.range * ModConfig.range) return
         } else { //target mode
-            val eyes = mc.thePlayer.getPositionEyes(partialTicks)
-            val lookVector = mc.thePlayer.getLook(partialTicks) * ModConfig.range.toDouble()
+            val eyes = player.getPositionEyes(partialTicks)
+            val lookVector = player.getLook(partialTicks) * ModConfig.range.toDouble()
             val intercept = target.actualHitbox.calculateIntercept(eyes, eyes + lookVector)
             if (intercept == null) return
         }
@@ -45,7 +45,7 @@ object EventListener {
         val shrunkenBestHitPos = camera.coerceInto(shrunkenTargetBox)
         val box = shrunkenBestHitPos.toBox().expand(halfRange)
 
-        if (mc.pointedEntity == event.entityPlayer) {
+        if (mc.pointedEntity == target) {
             renderBox(box, ModConfig.inReachColor)
         } else {
             renderBox(box, ModConfig.boxColor)
