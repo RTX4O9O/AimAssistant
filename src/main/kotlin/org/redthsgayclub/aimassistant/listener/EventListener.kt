@@ -6,12 +6,15 @@ import net.minecraft.client.renderer.Tessellator
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats
 import net.minecraft.entity.Entity
 import net.minecraft.util.AxisAlignedBB
+import net.minecraft.util.MovingObjectPosition
 import net.minecraft.util.Vec3
 import net.minecraftforge.client.event.RenderPlayerEvent
 import net.minecraftforge.fml.common.eventhandler.EventPriority
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import org.lwjgl.opengl.GL11
 import org.redthsgayclub.aimassistant.config.ModConfig
+import kotlin.math.abs
+import kotlin.math.max
 import net.minecraft.client.renderer.GlStateManager as GL
 
 object EventListener {
@@ -23,30 +26,68 @@ object EventListener {
         val partialTicks = event.partialRenderTick
         if (target == player) return
 
+        val eyes = player.getPositionEyes(partialTicks)
+        val lookVector = player.getLook(partialTicks) * ModConfig.range.toDouble()
+
         if (ModConfig.mode) { // range mode
             val distance = target.getDistanceSqToEntity(player)
             if (distance > ModConfig.range * ModConfig.range) return
         } else { //target mode
-            val eyes = player.getPositionEyes(partialTicks)
-            val lookVector = player.getLook(partialTicks) * ModConfig.range.toDouble()
-            val intercept = target.actualHitbox.calculateIntercept(eyes, eyes + lookVector)
-            if (intercept == null) return
+            target.actualHitbox.calculateIntercept(eyes, eyes + lookVector) ?: return
         }
 
         val lerpedPos = player.getLerpedPos(partialTicks)
         val targetSmoothOffset = (target.prevPos - target.pos) * (1.0 - partialTicks.toDouble())
         val boxAtOrigin = target.actualHitbox.offset(targetSmoothOffset - lerpedPos)
-        val camera = Vec3(0.0, player.eyeHeight.toDouble(), 0.0)
-        val bestHitPos = camera.coerceInto(boxAtOrigin)
-        val tooClose = camera.squareDistanceTo(bestHitPos) < 0.1 * 0.1
-        if (tooClose) return
+        val camera = Vec3(0.0, mc.renderViewEntity.eyeHeight.toDouble(), 0.0)
+        var bestHitPos = camera.coerceInto(boxAtOrigin)
+        val closestAngle = camera.getPitchYawFromPos(bestHitPos)
         val halfRange = ModConfig.size / 2.0
         val shrunkenTargetBox = boxAtOrigin.contract(halfRange)
-        val shrunkenBestHitPos = camera.coerceInto(shrunkenTargetBox)
+        var shrunkenBestHitPos = camera.coerceInto(shrunkenTargetBox)
+        if (ModConfig.closestPossible) { // big nerd calculations
+            var distance = camera.squareDistanceTo(bestHitPos)
+            var rayTraceObject = rayTrace(ModConfig.range.toDouble(), closestAngle.pitch, closestAngle.yaw, partialTicks)
+            if (rayTraceObject != null && rayTraceObject.typeOfHit != MovingObjectPosition.MovingObjectType.MISS && distance >= rayTraceObject.hitVec.squareDistanceTo(eyes)) {
+                var shouldReturn = true
+                val area = camera.getArea(boxAtOrigin)
+                closestAngle.yaw += (if (closestAngle.yaw !in area.left..area.right) 360 else 0)
+                val horizontalHalf = (max(abs(area.left - closestAngle.yaw), abs(area.right - closestAngle.yaw)) * ModConfig.accuracy).toInt()
+                val verticalHalf = (max(abs(area.top - closestAngle.pitch), abs(area.bottom - closestAngle.pitch)) * ModConfig.accuracy).toInt()
+                var shouldBreak = false
+                for (horizontal in 0..horizontalHalf) {
+                    for (vertical in 0..verticalHalf) {
+                        for (a in listOf(-1, 1)) {
+                            for (b in listOf(-1, 1)) {
+                                val yaw = closestAngle.yaw + horizontal * a / ModConfig.accuracy
+                                val pitch = closestAngle.pitch + vertical * b / ModConfig.accuracy
+                                if (yaw in area.left..area.right && pitch in area.top..area.bottom) {
+                                    rayTraceObject = rayTrace(ModConfig.range.toDouble(), pitch, yaw, partialTicks)
+                                    val movingObjectPosition = boxAtOrigin.calculateIntercept(camera, camera + getVectorForRotation(pitch, yaw) * ModConfig.range.toDouble()) ?: continue
+                                    distance = movingObjectPosition.hitVec.squareDistanceTo(camera)
+                                    if (rayTraceObject != null && rayTraceObject.typeOfHit != MovingObjectPosition.MovingObjectType.MISS && distance >= rayTraceObject.hitVec.squareDistanceTo(eyes)) continue
+                                    bestHitPos = movingObjectPosition.hitVec
+                                    shrunkenBestHitPos = movingObjectPosition.hitVec.coerceInto(shrunkenTargetBox)
+                                    shouldReturn = false
+                                    shouldBreak = true
+                                    break
+                                }
+                            }
+                            if (shouldBreak) break
+                        }
+                        if (shouldBreak) break
+                    }
+                    if (shouldBreak) break
+                }
+                if (shouldReturn) return
+            }
+        }
+        val tooClose = camera.squareDistanceTo(bestHitPos) < 0.01
+        if (tooClose) return
         val box = shrunkenBestHitPos.toBox().expand(halfRange)
 
         if (mc.pointedEntity == target) {
-            renderBox(box, ModConfig.inReachColor)
+            renderBox(box, ModConfig.hoverColor)
         } else {
             renderBox(box, ModConfig.boxColor)
         }
